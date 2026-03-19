@@ -12,7 +12,7 @@ use CRM_Intake_ExtensionUtil as E;
 function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array &$params): void {
 
     $profilecontgedrag = [322]; 
-    $extdebug          = 3; 
+    $extdebug          = 0; 
 
     // CHECK: Is dit de juiste groep en actie?
     if (!in_array($groupID, $profilecontgedrag) || ($op != 'create' && $op != 'edit')) {
@@ -181,7 +181,7 @@ function gedrag_civicrm_configure($entityID = NULL, array $params = [], $op = 'd
         $processing_gedrag[$entityID] = true;
     }
 
-    $extdebug    = 3; // Log-niveau (3=standaard, 5=detail)
+    $extdebug    = 0; // Log-niveau (3=standaard, 5=detail)
     $displayname = "Onbekend";
 
     wachthond($extdebug, 3, "########################################################################");
