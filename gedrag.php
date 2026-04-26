@@ -4,316 +4,174 @@ require_once 'gedrag.civix.php';
 use CRM_Intake_ExtensionUtil as E;
 
 /**
- * Hook Pre: De "Verkeersregelaar".
- * VERSIE 4.1: HYBRIDE + ORIGINELE BACKUP.
- * * Ondersteunt zowel Backend (Namen) als Profielen (ID's + Value objecten).
- * * Slaat de originele input op in $params_org voor debugging.
+ * =======================================================================================
+ * COLOFON: gedrag_get_field_map (SINGLE SOURCE OF TRUTH)
+ * =======================================================================================
+ * @description     De centrale mapping voor alle Gedrag-gerelateerde custom fields binnen 
+ * deze module. Koppelt de database-kolommen aan APIv4-namen.
+ * @return array    Associatieve array in het format: ['db_naam_ID' => 'API.naam'].
+ * =======================================================================================
  */
-function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array &$params): void {
-
-    $profilecontgedrag = [322]; 
-    $extdebug          = 3; 
-
-    // CHECK: Is dit de juiste groep en actie?
-    if (!in_array($groupID, $profilecontgedrag) || ($op != 'create' && $op != 'edit')) {
-        return;
-    }
-
-    // --- STAP 0: VEILIGSTELLEN ORIGINELE DATA ---
-    // We maken direct een kopie van de input voordat we iets aanraken.
-    $params_org = $params;
-
-    wachthond($extdebug, 3, "########################################################################");
-    wachthond($extdebug, 3, "### GEDRAG PRE - START HOOK VOOR CONTACT: " . $entityID,   "[HOOK-START]");
-    
-    // LOG: We tonen de originele, onaangetaste input
-    wachthond($extdebug, 3, "DEBUG: OORSPRONKELIJKE PARAMS (\$params_org)", $params_org);
-
-    // -------------------------------------------------------------------------
-    // DEFINITIE: MAPPING OP ID (Voor Profielen)
-    // -------------------------------------------------------------------------
-    $id_map = [
-        1984 => 'GEDRAG.gedrag_issues',
-        1985 => 'GEDRAG.gedrag_shortlist',
-        1986 => 'GEDRAG.gedrag_longlist',
-        1987 => 'GEDRAG.gedrag_toelichting',
-        1988 => 'GEDRAG.gedrag_notities',
-        1989 => 'GEDRAG.gedrag_check',
-        1994 => 'GEDRAG.gedrag_modified',
-    ];
-
-    // -------------------------------------------------------------------------
-    // DEFINITIE: MAPPING OP NAAM (Voor Backend/API)
-    // -------------------------------------------------------------------------
-    $name_map = [
+function gedrag_get_field_map(): array {
+    return [
         'gedrag_issues_1984'      => 'GEDRAG.gedrag_issues',
         'gedrag_shortlist_1985'   => 'GEDRAG.gedrag_shortlist',
         'gedrag_longlist_1986'    => 'GEDRAG.gedrag_longlist',
         'gedrag_toelichting_1987' => 'GEDRAG.gedrag_toelichting',
         'gedrag_notities_1988'    => 'GEDRAG.gedrag_notities',
         'gedrag_check_1989'       => 'GEDRAG.gedrag_check',
-        'gedrag_modified_1994'    => 'GEDRAG.gedrag_modified',
+        'gedrag_modified_2100'    => 'GEDRAG.gedrag_modified',
     ];
-
-    // -------------------------------------------------------------------------
-    // DETECTIE: IN WELKE MODUS ZIJN WE?
-    // -------------------------------------------------------------------------
-    // Profiel modus herkennen we: Index 0 is een array én heeft een 'custom_field_id'.
-    // We gebruiken hier $params_org voor de detectie (is veilig).
-    $is_profile_mode = (isset($params_org[0]) && is_array($params_org[0]) && isset($params_org[0]['custom_field_id']));
-
-    if ($is_profile_mode) {
-        // =====================================================================
-        // SCENARIO A: PROFIEL MODUS (De "Moeilijke" Structuur)
-        // =====================================================================
-        // Hierin zit de data verstopt in objecten: [0] => ['custom_field_id'=>1984, 'value'=>'...']
-        wachthond($extdebug, 3, "MODUS: Profiel Structuur gedetecteerd (Werken met ID's).");
-
-        // STAP 1: INPUT VERZAMELEN (Op basis van ID)
-        $motor_params = [];
-        foreach ($params_org as $index => $field_data) {
-            $fid = $field_data['custom_field_id'] ?? 0;
-            if (isset($id_map[$fid])) {
-                $api_key = $id_map[$fid];
-                // In deze modus zit de waarde altijd in de key 'value'
-                $motor_params[$api_key] = $field_data['value'] ?? '';
-            }
-        }
-        wachthond($extdebug, 3, "STAP 1: Data verzameld voor motor", $motor_params);
-
-        // STAP 2: DE MOTOR (Rekenen)
-        $results = gedrag_civicrm_configure($entityID, $motor_params, 'hook');
-
-        // STAP 3: TERUGSCHRIJVEN (Injecteren in 'value')
-        // We lopen door de $params (reference!) heen en updaten de 'value' waar nodig.
-        foreach ($params as $index => &$field_data) {
-            $fid = $field_data['custom_field_id'] ?? 0;
-            
-            if (isset($id_map[$fid])) {
-                $api_key = $id_map[$fid];
-                
-                // Als de motor een waarde heeft voor dit ID...
-                if (isset($results[$api_key])) {
-                    $nieuwe_waarde = $results[$api_key];
-                    $oude_waarde   = $field_data['value'] ?? '[LEEG]';
-
-                    // Loggen als we iets veranderen
-                    if ($oude_waarde != $nieuwe_waarde) {
-                        wachthond($extdebug, 4, "--> UPDATE ID $fid ($api_key): 'value' wijzigt van '$oude_waarde' naar '$nieuwe_waarde'");
-                    }
-                    
-                    // CRUCIAAL: Update de 'value'. Dit is wat CiviCRM opslaat in deze modus.
-                    $field_data['value'] = $nieuwe_waarde;
-                }
-            }
-        }
-
-    } else {
-        // =====================================================================
-        // SCENARIO B: STANDAARD MODUS (De "Makkelijke" Structuur)
-        // =====================================================================
-        // Hierin is het gewoon: ['gedrag_issues_1984' => '1']
-        wachthond($extdebug, 3, "MODUS: Standaard Structuur gedetecteerd (Werken met Namen).");
-        
-        // Hulpfunctie voor platte records
-        $verwerk_record = function(&$record) use ($entityID, $extdebug, $name_map) {
-            // 1. Verzamelen
-            $motor_params = [];
-            foreach ($record as $key => $val) {
-                if (isset($name_map[$key])) {
-                    $motor_params[$name_map[$key]] = $val;
-                }
-            }
-            wachthond($extdebug, 3, "STAP 1: Data verzameld", $motor_params);
-
-            // 2. Rekenen
-            $results = gedrag_civicrm_configure($entityID, $motor_params, 'hook');
-            
-            // 3. Terugschrijven
-            foreach ($results as $api_key => $calculated_val) {
-                $keys = array_keys($name_map, $api_key);
-                foreach ($keys as $map_key) {
-                     if (isset($record[$map_key]) && $record[$map_key] != $calculated_val) {
-                         wachthond($extdebug, 4, "--> UPDATE: $map_key naar '$calculated_val'");
-                     }
-                     $record[$map_key] = $calculated_val;
-                }
-            }
-        };
-
-        // Routering voor plat of genummerd (Multi-record detectie)
-        $first_key = array_key_first($params);
-        $is_multi_record = is_int($first_key) && is_array($params[$first_key]);
-
-        if ($is_multi_record) {
-             foreach ($params as &$sub_record) {
-                 if (is_array($sub_record)) $verwerk_record($sub_record);
-             }
-        } else {
-             $verwerk_record($params);
-        }
-    }
-
-    // LOG: Het eindresultaat dat naar de database gaat
-    wachthond($extdebug, 3, 'DEBUG: DEFINITIEVE PARAMS (OUTPUT NA MODIFICATIE)', $params);
-
-    wachthond($extdebug, 3, "########################################################################");
-    wachthond($extdebug, 3, "### GEDRAG PRE - EINDE HOOK VOOR CONTACT: " . $entityID,   "[HOOK-EINDE]");
-    wachthond($extdebug, 3, "########################################################################");
 }
-    
+
 /**
- * Centrale verwerkingsfunctie (De Motor) voor Gedrag.
- * * DOEL:
- * Deze functie bepaalt de status van het gedrags-dossier.
- * 1. Het combineert bestaande data (DB) met nieuwe invoer om dataverlies te voorkomen.
- * 2. Het scant teksten en medicatie (ook uit Medisch!) op trefwoorden.
- * 3. Het berekent de vlaggetjes: Issues (Ja/Nee) en Check (Groen/Oranje/Rood).
+ * =======================================================================================
+ * COLOFON: gedrag_civicrm_customPre
+ * =======================================================================================
+ * @description     De "Portier" voor de Gedrag-module. Vangt formulierdata op, 
+ * laat de motor rekenen en injecteert resultaten terug via base-helpers.
+ * @trigger         Wordt getriggerd bij het opslaan van een Contact ('create' of 'edit').
+ * =======================================================================================
  */
-function gedrag_civicrm_configure($entityID = NULL, array $params = [], $op = 'direct', array $mapping = []): array {
+function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array &$params): void {
 
-    // --- STAP 0.1: RECURSIE STOP ---
-    // Voorkomt dat de functie in een oneindige loop raakt als hij zichzelf per ongeluk aanroept.
-    static $processing_gedrag = [];
-    
-    if (!empty($entityID)) {
-        if (isset($processing_gedrag[$entityID])) return $params;
-        $processing_gedrag[$entityID] = true;
+    // --- STAP 0: PREVENTIE VAN DUBBELE UITVOERING ---
+    static $processing_gedrag_pre = FALSE;
+    if ($processing_gedrag_pre || !in_array($op, ['create', 'edit'])) {
+        return;
     }
 
-    $extdebug    = 3; // Log-niveau (3=standaard, 5=detail)
-    $displayname = "Onbekend";
+    $extdebug          = 0; // Zet op 1 of 3 voor uitgebreide logs
+    $profilecontgedrag = [322]; 
 
-    wachthond($extdebug, 3, "########################################################################");
-    wachthond($extdebug, 3, "### GEDRAG 1.0. START CONFIGURATIE (ID: $entityID)",             "[START]");
-    wachthond($extdebug, 3, "########################################################################");
+    // Vroege afbreking als we niet in het juiste profiel zitten
+    if (!in_array($groupID, $profilecontgedrag)) {
+        return;
+    }
 
-    if (!empty($entityID)) {
-        
-        // --- OPTIMALISATIE: STATIC CACHE ---
-        // Slaat database resultaten op in het geheugen voor deze sessie.
-        static $contact_cache_gedrag = [];
-        $result_contact_get = null;
+    wachthond($extdebug, 1, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG [PRE] 1.0 EXTRACTIE & MAPPING",                       "[MAP]");
+    wachthond($extdebug, 1, "########################################################################");
 
-        if (isset($contact_cache_gedrag[$entityID])) {
-            $result_contact_get = $contact_cache_gedrag[$entityID];
-            wachthond($extdebug, 3, "GEDRAG: Data uit CACHE geladen (DB gespaard)");
-            
-        } else {
-            
-            // 1. SELECTIE DEFINIEREN
-            // We halen altijd de context-velden op (Medisch & Curriculum) voor de analyse.
-            $select_fields = [
+    // --- STAP 1.0: EXTRACTIE VIA BASE HELPER ---
+    $name_map      = gedrag_get_field_map();
+    $field_ids     = base_get_field_ids($name_map);
+    $params_gedrag = base_extract_from_params($params, $name_map);
+
+    // Als we geen gedrags-velden hebben, hoeven we niets te doen.
+    if (empty($params_gedrag)) {
+        return;
+    }
+
+    $processing_gedrag_pre = TRUE;
+
+    wachthond($extdebug, 1, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG [PRE] 2.0 START VERWERKING",                "[ID: $entityID]");
+    wachthond($extdebug, 1, "########################################################################");
+
+    // --- STAP 2.0: LOGICA UITBESTEDEN AAN DE REKENMACHINE ---
+    // Context 'hook' zorgt dat we array terugkrijgen en hij niet zelf de DB update aanroept.
+    $data_to_inject = gedrag_civicrm_configure($entityID, 'hook', $params_gedrag);
+
+    wachthond($extdebug, 2, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG [PRE] 3.0 INJECTIE IN FORMULIER",               "[$entityID]");
+    wachthond($extdebug, 2, "########################################################################");
+
+    // --- STAP 3.0: RESULTATEN TERUGSTOPPEN IN HET FORMULIER ---
+    if (!empty($data_to_inject)) {
+        $success_list = base_inject_params($params, $data_to_inject, $field_ids, $entityID, "GEDRAG");
+
+        if (!empty($success_list)) {
+            wachthond($extdebug, 1, "GEDRAG [PRE] SUCCES: Injectie voltooid", $success_list);
+        }
+    }
+
+    // --- STAP 4.0: DRUPAL DATUM CRASH VOORKOMEN ---
+    if (function_exists('drupal_timestamp_sweep')) {
+        drupal_timestamp_sweep($params);
+    }
+
+    wachthond($extdebug, 1, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG [PRE] EINDE VERWERKING",                        "[SUCCESS]");
+    wachthond($extdebug, 1, "########################################################################");
+
+    $processing_gedrag_pre = FALSE;
+}
+
+/**
+ * =======================================================================================
+ * COLOFON: gedrag_civicrm_configure
+ * =======================================================================================
+ * @description     De "Rekenmachine" voor Gedrag. Berekent statussen, synct medicatie
+ * en genereert waarden om te injecteren/updaten.
+ * =======================================================================================
+ */
+function gedrag_civicrm_configure(int $contact_id, string $context = 'direct', array $params_gedrag = []): array {
+
+    // --- RECURSIE BEVEILIGING ---
+    static $processing_gedrag_configure = FALSE;
+    if ($processing_gedrag_configure || empty($contact_id)) {
+        return [];
+    }
+
+    $extdebug = 0; 
+    $processing_gedrag_configure = TRUE;
+
+    wachthond($extdebug, 2, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG CONFIGURE - 1.0 DATA INLADEN UIT DATABASE",     "[FALLBACK]");
+    wachthond($extdebug, 2, "########################################################################");
+
+    // 1. Haal de huidige situatie op (noodzakelijk voor cross-module data zoals medisch).
+    try {
+        $result_contact_get = civicrm_api4('Contact', 'get', [
+            'checkPermissions' => FALSE,
+            'select'           => [
                 'display_name', 
-                'Curriculum.Laatste_keer',      // Context
-                'MEDISCH.medisch_toelichting',  // Context: we lezen mee met medisch
-                'MEDISCH.medisch_medicatie'     // Context: we scannen medicatie
-            ];
-
-            // 2. [FIX DATAVERLIES] DIRECT CALL & HOOK BESCHERMING
-            // We voegen hier 'hook' toe. Dit zorgt ervoor dat de motor ook bij een profiel-opslag
-            // even in de database kijkt om de Medische context en Curriculum info op te halen.
-            // Zo kunnen we 'Ritalin' (uit DB) koppelen aan 'ADHD' (in formulier).
-            if ($op == 'direct' || $op == 'hook') {
-                $select_fields = array_merge($select_fields, [
-                    'GEDRAG.gedrag_issues',
-                    'GEDRAG.gedrag_toelichting', 
-                    'GEDRAG.gedrag_notities',    
-                    'GEDRAG.gedrag_check',
-                    'GEDRAG.gedrag_modified',
-                    'GEDRAG.gedrag_shortlist',   
-                    'GEDRAG.gedrag_longlist'
-                ]);
-            }
-
-            // 3. API AANROEP
-            try {
-                $result_contact_get = civicrm_api4('Contact', 'get', [
-                    'checkPermissions' => FALSE,
-                    'select'           => $select_fields,
-                    'where'            => [['id', '=', $entityID]],
-                    'limit'            => 1,
-                ])->first();
-            } catch (\Exception $e) {
-                wachthond(1, 3, "GEDRAG FETCH ERROR: " . $e->getMessage());
-            }
-
-            // 4. CACHE VULLEN
-            if ($result_contact_get) {
-                $contact_cache_gedrag[$entityID] = $result_contact_get;
-            }
-        }
-        
-        // --- VERWERKING ---
-        if ($result_contact_get) {
-            $displayname = $result_contact_get['display_name'] ?? "Onbekend";
-            
-            // [FIX SLIMME MERGE]
-            // Ook bij een hook willen we de bestaande data uit de database combineren met de nieuwe input.
-            // Dit voorkomt dat een veld dat NIET op het formulier staat, per ongeluk wordt leeggemaakt.
-            if ($op == 'direct' || $op == 'hook') {
-                $input_params = array_filter($params, function($v) { 
-                    return $v !== '' && $v !== null; 
-                });
-                
-                $params = array_merge($result_contact_get, $input_params);
-                wachthond($extdebug, 5, "GEDRAG MERGE COMPLETE voor $displayname");
-            }
-        }
+                'Curriculum.Laatste_keer',      
+                'MEDISCH.medisch_toelichting',  
+                'MEDISCH.medisch_medicatie',    
+                'GEDRAG.gedrag_issues',
+                'GEDRAG.gedrag_toelichting', 
+                'GEDRAG.gedrag_notities',    
+                'GEDRAG.gedrag_check',
+                'GEDRAG.gedrag_modified',
+                'GEDRAG.gedrag_shortlist',   
+                'GEDRAG.gedrag_longlist'
+            ],
+            'where'            => [['id', '=', $contact_id]],
+            'limit'            => 1,
+        ])->first();
+    } catch (\Exception $e) {
+        wachthond(1, 1, "GEDRAG FETCH ERROR: " . $e->getMessage());
+        $result_contact_get = [];
     }
 
-    wachthond($extdebug, 3, "########################################################################");
-    wachthond($extdebug, 3, "### GEDRAG 1.1. INITIALISATIE LIJSTEN",                          "[CURRENT]");
-    wachthond($extdebug, 3, "########################################################################");
+    wachthond($extdebug, 2, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG CONFIGURE - 2.0 BEPAAL LEIDENDE WAARDEN",       "[INPUT]");
+    wachthond($extdebug, 2, "########################################################################");
 
-    // --- STAP 1: LIJSTEN INITIALISEREN ---
-    $init_keys = [
-        'gedrag_shortlist' => 'GEDRAG.gedrag_shortlist',
-        'gedrag_longlist'  => 'GEDRAG.gedrag_longlist',
-    ];
+    // 2. Formulierinput (params_gedrag) overschrijft Database (result_contact_get).
+    $val_toelichting     = $params_gedrag['GEDRAG.gedrag_toelichting'] ?? $result_contact_get['GEDRAG.gedrag_toelichting'] ?? '';
+    $val_notities        = $params_gedrag['GEDRAG.gedrag_notities']    ?? $result_contact_get['GEDRAG.gedrag_notities']    ?? '';
 
+    // Medisch is puur voor de checks (wordt niet bewerkt op dit formulier).
+    $val_med_toelichting = $result_contact_get['MEDISCH.medisch_toelichting'] ?? '';
+    $val_med_medicatie   = $result_contact_get['MEDISCH.medisch_medicatie']   ?? '';
+
+    // Ruwe data (De extract helper geeft nette strings terug met \x01 separators indien multi-select)
+    $raw_shortlist       = $params_gedrag['GEDRAG.gedrag_shortlist'] ?? $result_contact_get['GEDRAG.gedrag_shortlist'] ?? [];
+    $raw_longlist        = $params_gedrag['GEDRAG.gedrag_longlist']  ?? $result_contact_get['GEDRAG.gedrag_longlist']  ?? [];
+
+    // Normaliseren naar PHP Arrays voor de logica
     $lists = [];
-    foreach ($init_keys as $key => $api_name) {
-        $raw_input = $params[$api_name] ?? '';
-        
-        // [FIX] ARRAY VS STRING
-        // API4 geeft arrays terug, formulieren strings. We moeten beide aan kunnen.
-        if (is_array($raw_input)) {
-             $as_array = $raw_input;
-        } else {
-             $clean_string = format_civicrm_smart($raw_input, $api_name);
-             $as_array = explode(CRM_Core_DAO::VALUE_SEPARATOR, trim($clean_string, CRM_Core_DAO::VALUE_SEPARATOR));
-        }
-        
-        // Filter lege waarden eruit
-        $lists[$key] = (array) array_values(array_filter($as_array, function($v) {
-            return !empty($v) && is_string($v) && trim($v) !== '' && strtolower($v) !== 'array';
-        }));
-    }
+    $lists['gedrag_shortlist'] = is_array($raw_shortlist) ? $raw_shortlist : array_filter(explode("\x01", trim($raw_shortlist, "\x01")));
+    $lists['gedrag_longlist']  = is_array($raw_longlist)  ? $raw_longlist  : array_filter(explode("\x01", trim($raw_longlist, "\x01")));
 
-    // --- STAP 2: VARIABELEN TOEWIJZEN (VEILIG) ---
-
-    // Helper functie: Pakt Input, anders DB, anders leeg string.
-    $pak_waarde = fn($key) => !empty($params[$key]) ? $params[$key] : ($result_contact_get[$key] ?? '');
-
-    // Eigen Gedrag velden
-    $val_toelichting     = $pak_waarde('GEDRAG.gedrag_toelichting');
-    $val_notities        = $pak_waarde('GEDRAG.gedrag_notities');
-
-    // Medische context (Read-only voor analyse)
-    $val_med_toelichting = $pak_waarde('MEDISCH.medisch_toelichting');
-    $val_med_medicatie   = $pak_waarde('MEDISCH.medisch_medicatie');
-    $val_curriculum      = $pak_waarde('Curriculum.Laatste_keer');
-
-    // De Haystack: We plakken alles aan elkaar om in één keer te kunnen zoeken.
-    // Dit zorgt ervoor dat we ook gedragsproblemen vinden die per ongeluk bij Medisch zijn ingevuld.
     $haystack_gedrag = $val_toelichting . ' ' . $val_notities . ' ' . $val_med_toelichting . ' ' . $val_med_medicatie;
-    
-    wachthond($extdebug, 3, "GEDRAG HAYSTACK LEN: " . strlen($haystack_gedrag));
 
-    wachthond($extdebug, 3, "########################################################################");
-    wachthond($extdebug, 3, "### GEDRAG 2.0. OPSCHONEN NEGATIEVE TERMEN",                 "[CLEANUP]");
-    wachthond($extdebug, 3, "########################################################################");
+    wachthond($extdebug, 2, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG CONFIGURE - 2.1 OPSCHONEN NEGATIEVE TERMEN",    "[CLEANUP]");
+    wachthond($extdebug, 2, "########################################################################");
 
     // We verwijderen termen als 'nee', 'geen', 'nvt' uit de Gedrag-velden.
     // Dit voorkomt dat 'geen autisme' wordt gezien als 'autisme'.
@@ -330,14 +188,14 @@ function gedrag_civicrm_configure($entityID = NULL, array $params = [], $op = 'd
         
         if (in_array($clean_val, $negatieve_termen)) {
             wachthond($extdebug, 3, "OPSCHONEN: Negatieve term gevonden in $f_name");
-            $val = ''; $params[$f_name] = ''; 
+            $val = '';
         }
     }
     unset($val); // Veiligheid: referentie verbreken
 
-    wachthond($extdebug, 3, "########################################################################");
-    wachthond($extdebug, 3, "### GEDRAG 3.0. ANALYSE GEDRAGSCHECKS (DETECTIE & SYNC)",    "[SYNC]");
-    wachthond($extdebug, 3, "########################################################################");
+    wachthond($extdebug, 2, "########################################################################");
+    wachthond($extdebug, 1, "### GEDRAG CONFIGURE - 3.0 ANALYSE GEDRAGSCHECKS",         "[SYNC]");
+    wachthond($extdebug, 2, "########################################################################");
 
     // Haal op welke opties er daadwerkelijk bestaan in de database voor de shortlist.
     $valid_shortlist_options    = get_valid_options('gedrag_shortlist', 322);
@@ -355,7 +213,7 @@ function gedrag_civicrm_configure($entityID = NULL, array $params = [], $op = 'd
         'agressie'          => ['agressie', 'agressief', 'agresie', 'fysiek reageren', 'driftig', 'woede', ' odd ', 'grensoverschrijdend'],
         'asperger'          => ['asperger'],
         'autisme'           => ['autisme', ' ass ', 'autistisch', 'spectrumstoornis'],
-        'bedplassen'        => ['bedplassen', 'laten plassen', 'in bed plassen', ' plast in bed ', 'zindelijk', 'zindelijkheid', ' plasluier ', ' luier'],
+        'bedplassen'        => ['bedplassen','laten plassen',' bed plassen',' plast in bed ','zindelijk','zindelijkheid',' plasluier ',' luier'],
         'depressief'        => ['depressief', 'depressie', 'neerslachtig', 'stemmingsstoornis', 'depresief', 'depressiva'],
         'dyslexie'          => ['dyslexie', 'dyslectisch', 'dyscalculie', 'dislexie'],
         'fas'               => [' fas ', 'foetaal alcohol', 'alcohol syndroom'],
@@ -744,50 +602,25 @@ function gedrag_civicrm_configure($entityID = NULL, array $params = [], $op = 'd
         wachthond($extdebug, 5, "CLEANUP [$key]: Bevat nu " . count($list) . " items.");
     }    
     
-    // Finale Parameters voor de Database
-    $params_values = [
+    // DATA PREPAREREN VOOR DE VERZAMELAAR (Base Inject / Base API Wrapper)
+    // Let op: Base API Wrapper en Inject Params verwachten schone PHP arrays voor multi-selects!
+    $data_to_inject = [
         'GEDRAG.gedrag_issues'      => (string)$has_issues,
         'GEDRAG.gedrag_check'       => (string)$new_check_status,
         'GEDRAG.gedrag_modified'    => date("Y-m-d H:i:s"),
         'GEDRAG.gedrag_toelichting' => (string)$val_toelichting,
         'GEDRAG.gedrag_notities'    => (string)$val_notities,
-        'GEDRAG.gedrag_shortlist'   => (string)format_civicrm_smart($lists['gedrag_shortlist'], 'GEDRAG.gedrag_shortlist'),
-        'GEDRAG.gedrag_longlist'    => (string)format_civicrm_smart($lists['gedrag_longlist'],  'GEDRAG.gedrag_longlist'),
+        'GEDRAG.gedrag_shortlist'   => $lists['gedrag_shortlist'], // Base-helpers zetten arrays om!
+        'GEDRAG.gedrag_longlist'    => $lists['gedrag_longlist'],  // Base-helpers zetten arrays om!
     ];
 
-    // Laatste veiligheidscheck: geen arrays naar de DB sturen!
-    foreach ($params_values as $key => $val) {
-        if (is_array($val)) {
-            wachthond(3, 3, "CRITICAL ALERT: Veld $key was een ARRAY. Geforceerd naar leeg.");
-            $params_values[$key] = "";
-        }
-    }
-    
-    wachthond($extdebug, 3, 'gedrag_params_values', $params_values);
-
-    // DIRECT DATABASE UPDATE (Alleen bij directe aanroep vanuit core.php)
-    if ($op == 'direct' && !empty($entityID)) {
-        $params_update_gedrag = [
-            'checkPermissions' => FALSE,
-            'where'            => [['id', '=', (int)$entityID]],
-            'values'           => $params_values, 
-        ];
-        
-        wachthond($extdebug, 7, 'params_update_gedrag', $params_update_gedrag);
-        try {
-            civicrm_api4('Contact', 'update', $params_update_gedrag);
-        } catch (\Exception $e) {
-            wachthond(1, 3, "API Update Error: " . $e->getMessage());
-        }
+    if ($context === 'direct' && !empty($data_to_inject)) {
+        wachthond($extdebug, 1, "### UPDATE STRATEGIE: API CALL", "[FLOW]");
+        $res_gedrag = base_api_wrapper('Contact', $contact_id, $data_to_inject, "GEDRAG_CONF");
+    } else {
+        wachthond($extdebug, 1, "### UPDATE STRATEGIE: RETOUR VOOR HOOK", "[FLOW]");
     }
 
-    // Resultaten samenvoegen met input en returnen
-    $params = array_merge($params, $params_values);
-    drupal_timestamp_sweep($params);
-
-    // Recursie vrijgeven
-    if (!empty($entityID)) {
-        unset($processing_gedrag[$entityID]);
-    }
-    return $params;
+    $processing_gedrag_configure = FALSE;
+    return $data_to_inject;
 }
