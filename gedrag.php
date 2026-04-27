@@ -1,12 +1,14 @@
 <?php
 
-// === FUNCTIE-INDEX ===
-// Bestand: gedrag.php
-// Functies in dit bestand:
-//   gedrag_get_field_map()      De centrale mapping voor alle Gedrag-gerelateerde custom fields binnen
-//   gedrag_civicrm_customPre()  De "Portier" voor de Gedrag-module. Vangt formulierdata op,
-//   gedrag_civicrm_configure()  De "Rekenmachine" voor Gedrag. Berekent statussen, synct medicatie
-// === EINDE FUNCTIE-INDEX ===
+/**
+ * =======================================================================================
+ * FUNCTIE-INDEX: gedrag.php
+ * =======================================================================================
+ *   gedrag_get_field_map()      De centrale mapping voor alle Gedrag-gerelateerde custom fields binnen
+ *   gedrag_civicrm_customPre()  De "Portier" voor de Gedrag-module. Vangt formulierdata op,
+ *   gedrag_civicrm_configure()  De "Rekenmachine" voor Gedrag. Berekent statussen, synct medicatie
+ * =======================================================================================
+ */
 
 require_once 'gedrag.civix.php';
 use CRM_Intake_ExtensionUtil as E;
