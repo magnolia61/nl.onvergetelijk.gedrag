@@ -51,7 +51,7 @@ function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array
         return;
     }
 
-    $extdebug          = 0; // Zet op 1 of 3 voor uitgebreide logs
+    $extdebug = 'gedrag.custompre'; // Kanaal voor centrale debug-config; niveau wordt opgezocht in ozk.debug.config.php
     $profilecontgedrag = [322]; 
 
     // Vroege afbreking als we niet in het juiste profiel zitten
@@ -75,6 +75,9 @@ function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array
 
     $processing_gedrag_pre = TRUE;
 
+    $gedrag_custompre_start = microtime(TRUE);
+    watchdog('civicrm_timing', base_microtimer("START gedrag_custompre [GID: $groupID / EID: $entityID]"), NULL, WATCHDOG_DEBUG);
+
     wachthond($extdebug, 1, "########################################################################");
     wachthond($extdebug, 1, "### GEDRAG [PRE] 2.0 START VERWERKING",                "[ID: $entityID]");
     wachthond($extdebug, 1, "########################################################################");
@@ -89,7 +92,7 @@ function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array
 
     // --- STAP 3.0: RESULTATEN TERUGSTOPPEN IN HET FORMULIER ---
     if (!empty($data_to_inject)) {
-        $success_list = base_inject_params($params, $data_to_inject, $field_ids, $entityID, "GEDRAG");
+        $success_list = base_inject_params($params, $data_to_inject, $field_ids, $entityID, "GEDRAG", $extdebug);
 
         if (!empty($success_list)) {
             wachthond($extdebug, 1, "GEDRAG [PRE] SUCCES: Injectie voltooid", $success_list);
@@ -104,6 +107,9 @@ function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array
     wachthond($extdebug, 1, "########################################################################");
     wachthond($extdebug, 1, "### GEDRAG [PRE] EINDE VERWERKING",                        "[SUCCESS]");
     wachthond($extdebug, 1, "########################################################################");
+
+    $total_gedrag_custompre_duur = number_format(microtime(TRUE) - $gedrag_custompre_start, 3);
+    watchdog('civicrm_timing', base_microtimer("EINDE gedrag_custompre"), NULL, WATCHDOG_DEBUG);
 
     $processing_gedrag_pre = FALSE;
 }
@@ -124,8 +130,11 @@ function gedrag_civicrm_configure(int $contact_id, string $context = 'direct', a
         return [];
     }
 
-    $extdebug = 0; 
+    $extdebug = 'gedrag.configure'; // Kanaal voor centrale debug-config; niveau wordt opgezocht in ozk.debug.config.php
     $processing_gedrag_configure = TRUE;
+
+    $gedrag_configure_start = microtime(TRUE);
+    watchdog('civicrm_timing', base_microtimer("START gedrag_configure [CID: $contact_id]"), NULL, WATCHDOG_DEBUG);
 
     wachthond($extdebug, 2, "########################################################################");
     wachthond($extdebug, 1, "### GEDRAG CONFIGURE - 1.0 DATA INLADEN UIT DATABASE",     "[FALLBACK]");
@@ -626,10 +635,13 @@ function gedrag_civicrm_configure(int $contact_id, string $context = 'direct', a
 
     if ($context === 'direct' && !empty($data_to_inject)) {
         wachthond($extdebug, 1, "### UPDATE STRATEGIE: API CALL", "[FLOW]");
-        $res_gedrag = base_api_wrapper('Contact', $contact_id, $data_to_inject, "GEDRAG_CONF");
+        $res_gedrag = base_api_wrapper('Contact', $contact_id, $data_to_inject, "GEDRAG_CONF", $extdebug);
     } else {
         wachthond($extdebug, 1, "### UPDATE STRATEGIE: RETOUR VOOR HOOK", "[FLOW]");
     }
+
+    $total_gedrag_configure_duur = number_format(microtime(TRUE) - $gedrag_configure_start, 3);
+    watchdog('civicrm_timing', base_microtimer("EINDE gedrag_configure"), NULL, WATCHDOG_DEBUG);
 
     $processing_gedrag_configure = FALSE;
     return $data_to_inject;

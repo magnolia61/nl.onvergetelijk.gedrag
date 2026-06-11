@@ -1,0 +1,1049 @@
+<?php
+
+require_once 'gedrag.civix.php';
+
+use CRM_Intake_ExtensionUtil as E;
+
+function gedrag_civicrm_customPre(string $op, int $groupID, int $entityID, array &$params): void {
+
+    $extdebug       = 0;  //  1 = basic // 2 = verbose // 3 = params / 4 = results
+    $apidebug       = FALSE;
+
+    $extwrite       = 1;
+    $extgedrag      = 1;
+
+    if ($op != 'create' && $op != 'edit') { //    did we just create or edit a custom object?
+        wachthond($extdebug,4, "########################################################################");
+        wachthond($extdebug,4, "### GEDRAG [PRE] EXIT: op != create OR op != edit", "(op: $op)");
+        wachthond($extdebug,4, "########################################################################");
+        return;
+    }
+
+    $today_datetime         = date("Y-m-d H:i:s");
+    $today_datetime_past    = date('Y-m-d H:i:s', strtotime('-99 year', strtotime($today_datetime)) );
+    wachthond($extdebug,4, 'today_datetime_past',       $today_datetime_past);
+
+    $profilecontgedrag      = array(322);
+
+    if (!in_array($groupID, $profilecontgedrag))  {
+
+        wachthond($extdebug,4, "########################################################################");
+        wachthond($extdebug,4, "### GEDRAG [PRE] EXIT: groupID ($groupID) not in allowed list (profilegedrag)", $profilegedrag);
+        wachthond($extdebug,4, "########################################################################");
+        return;
+    }
+
+    if (in_array($groupID, $profilecontgedrag)) {
+
+        $contact_id = $entityID;
+
+        wachthond($extdebug,1, "########################################################################");
+        wachthond($extdebug,1, "### GEDRAG [PRE] 1.1 START RETRIEVE VALUES FROM PARAMS", "[groupID: $groupID / op: $op]");
+        wachthond($extdebug,1, "########################################################################");
+
+        wachthond($extdebug,3, "entityid",    $entityID);
+        wachthond($extdebug,3, "params",      $params);
+
+        foreach($params as $i=>$item) {
+
+            if ( !isset($indexed[$i][$item['id']]) ) {
+                $indexed[$i]['key']         = $i;
+//              $indexed[$i]['entity_id']   = $item['entity_id']    ?? NULL;
+                $indexed[$i]['column_name'] = $item['column_name']  ?? NULL;
+//              $indexed[$i]['table_name']  = $item['table_name']   ?? NULL;
+                $indexed[$i]['value']       = $item['value']        ?? NULL;
+            }
+
+            if (!isset($key_gedrag_issues[$i])      AND $item['column_name']=="gedrag_issues_1984"      ) { $all_gedrag_issues[]      = $i;     }
+            if (!isset($key_gedrag_notities[$i])    AND $item['column_name']=="gedrag_shortlist_1985"   ) { $all_gedrag_shortlist[]   = $i;     }
+            if (!isset($key_gedrag_toelichting[$i]) AND $item['column_name']=="gedrag_toelichting_1987" ) { $all_gedrag_toelichting[] = $i;     }
+
+            if (!isset($key_gedrag_longlist[$i])    AND $item['column_name']=="gedrag_longlist_1986"    ) { $all_gedrag_longlist[]    = $i;     }
+            if (!isset($key_gedrag_check[$i])       AND $item['column_name']=="gedrag_check_1989"       ) { $all_gedrag_check[]       = $i;     }
+            if (!isset($key_gedrag_notities[$i])    AND $item['column_name']=="gedrag_notities_1988"    ) { $all_gedrag_notities[]    = $i;     }
+            if (!isset($key_gedrag_modified[$i])    AND $item['column_name']=="gedrag_modified_2100"    ) { $all_gedrag_modified[]    = $i;     }
+
+        }
+
+        wachthond($extdebug,4, "indexed", $indexed);
+
+        $key_gedrag_issues          = !empty($all_gedrag_issues)        ? $all_gedrag_issues[0]         : NULL;
+        $key_gedrag_shortlist       = !empty($all_gedrag_shortlist)     ? $all_gedrag_shortlist[0]      : NULL;
+        $key_gedrag_toelichting     = !empty($all_gedrag_toelichting)   ? $all_gedrag_toelichting[0]    : NULL;
+
+        $key_gedrag_longlist        = !empty($all_gedrag_longlist)      ? $all_gedrag_longlist[0]       : NULL;
+        $key_gedrag_check           = !empty($all_gedrag_check)         ? $all_gedrag_check[0]          : NULL;
+        $key_gedrag_notities        = !empty($all_gedrag_notities)      ? $all_gedrag_notities[0]       : NULL;
+        $key_gedrag_modified        = !empty($all_gedrag_modified)      ? $all_gedrag_modified[0]       : NULL;        
+
+        wachthond($extdebug,3,  "key_gedrag_issues",      $key_gedrag_issues);
+        wachthond($extdebug,3,  "key_gedrag_shortlist",   $key_gedrag_shortlist);    
+        wachthond($extdebug,3,  "key_gedrag_toelichting", $key_gedrag_toelichting);
+
+        wachthond($extdebug,3,  "key_gedrag_notities",    $key_gedrag_notities);
+        wachthond($extdebug,3,  "key_gedrag_longlist",    $key_gedrag_longlist);
+        wachthond($extdebug,3,  "key_gedrag_check",       $key_gedrag_check);        
+        wachthond($extdebug,3,  "key_gedrag_modified",    $key_gedrag_modified);
+
+        ##########################################################################################
+        ### GET GEDRAG ISSUES
+        ##########################################################################################        
+
+        if ($key_gedrag_issues >= 0) {
+            $raw_gedrag_issues          = $params[$key_gedrag_issues]['value']              ?? '';
+            $val_gedrag_issues          = $raw_gedrag_issues;
+            wachthond($extdebug,2,      "raw_gedrag_issues",     $raw_gedrag_issues[0]);
+            wachthond($extdebug,2,      "val_gedrag_issues",     $val_gedrag_issues[0]);
+        }
+
+        ##########################################################################################
+        ### GET GEDRAG SHORTLIST
+        ##########################################################################################        
+
+        if ($key_gedrag_shortlist >= 0) {
+            $raw_gedrag_shortlist        = $params[$key_gedrag_shortlist]['value']              ?? NULL;
+            $val_gedrag_shortlist        = array_filter(explode('', $raw_gedrag_shortlist ?? ''));
+            $cnt_gedrag_shortlist        = sizeof($val_gedrag_shortlist);
+            wachthond($extdebug,2,       "raw_gedrag_shortlist",      $raw_gedrag_shortlist);
+            wachthond($extdebug,2,       "val_gedrag_shortlist",      $val_gedrag_shortlist);
+            wachthond($extdebug,2,       "cnt_gedrag_shortlist",      $cnt_gedrag_shortlist);
+        } else {
+            $val_gedrag_shortlist = [];
+        }
+
+        ##########################################################################################
+        ### GET GEDRAG TOELICHTING
+        ##########################################################################################        
+
+        if ($key_gedrag_toelichting >= 0) {
+            $raw_gedrag_toelichting      = $params[$key_gedrag_toelichting]['value']        ?? NULL;
+            $val_gedrag_toelichting      = $raw_gedrag_toelichting;
+            wachthond($extdebug,2,       "val_gedrag_toelichting",  $val_gedrag_toelichting);
+        }
+
+        ##########################################################################################
+        ### GET GEDRAG LONGLIST
+        ##########################################################################################        
+
+        if ($key_gedrag_longlist >= 0) {
+            $raw_gedrag_longlist         = $params[$key_gedrag_longlist]['value']           ?? NULL;
+            $val_gedrag_longlist         = array_filter(explode('', $raw_gedrag_longlist ?? ''));
+            $cnt_gedrag_longlist         = sizeof($val_gedrag_longlist);
+            wachthond($extdebug,2,       "raw_gedrag_longlist",      $raw_gedrag_longlist);
+            wachthond($extdebug,2,       "val_gedrag_longlist",      $val_gedrag_longlist);
+            wachthond($extdebug,2,       "cnt_gedrag_longlist",      $cnt_gedrag_longlist);
+        } else {
+            $val_gedrag_longlist = [];
+        }
+        ##########################################################################################
+        ### GET GEDRAG CHECK
+        ##########################################################################################        
+
+        if ($key_gedrag_check >= 0) {
+            $raw_gedrag_check            = $params[$key_gedrag_check]['value']              ?? NULL;
+            $val_gedrag_check            = array_filter(explode('', $raw_gedrag_check ?? ''));
+            wachthond($extdebug,2,      "val_gedrag_check",      $val_gedrag_check[0]);
+        }
+
+        ##########################################################################################
+        ### GET GEDRAG NOTITIES
+        ##########################################################################################        
+
+        if ($key_gedrag_notities >= 0) {
+            $raw_gedrag_notities         = $params[$key_gedrag_notities]['value']           ?? NULL;
+            $val_gedrag_notities         = $raw_gedrag_notities; 
+            wachthond($extdebug,2,       "val_gedrag_notities",    $val_gedrag_notities);
+        }
+
+        ##########################################################################################
+        ### GET DATUM GEDRAG MODIFIED
+        ##########################################################################################        
+
+        if ($key_gedrag_modified >= 0) {
+            $raw_gedrag_modified           = $params[$key_gedrag_modified]['value']         ?? NULL;
+            if ($raw_gedrag_modified) {
+                $val_gedrag_modified    = date("Y-m-d H:i:s", strtotime($raw_gedrag_modified)); 
+            } else {
+                $val_gedrag_modified    = NULL; 
+            }
+            wachthond($extdebug,2,          "val_gedrag_modified",     $val_gedrag_modified);
+        }             
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,1, "### GEDRAG [PRE] 2.1 CHECKBOX GEDRAG INDIEN SHORTLIST OF TOELICHTING");
+        wachthond($extdebug,2, "########################################################################");
+
+        if (is_numeric($key_gedrag_issues)) {
+
+            wachthond($extdebug,2, 'key_gedrag_issues',                     $key_gedrag_issues);
+            wachthond($extdebug,2, 'val_gedrag_shortlist',                  $val_gedrag_shortlist);
+            wachthond($extdebug,2, 'val_gedrag_toelichting',                $val_gedrag_toelichting);            
+            wachthond($extdebug,2, 'val_gedrag_longlist',                   $val_gedrag_longlist);
+
+            if (!empty($val_gedrag_shortlist) OR !empty($val_gedrag_toelichting) OR !empty($val_gedrag_longlist)) {
+                $new_gedrag_issues = 1;
+            } else {
+                $new_gedrag_issues = 0;
+            }
+
+            $new_gedrag_issues     = (string) $new_gedrag_issues;
+
+            wachthond($extdebug,3, 'OLD params[key_gedrag_issues]',         $params[$key_gedrag_issues]);                    
+            if ($extwrite == 1) { $params[$key_gedrag_issues]['value'] =    $new_gedrag_issues; }
+            wachthond($extdebug,3, 'NEW params[key_gedrag_issues]',         $params[$key_gedrag_issues]);
+
+            wachthond($extdebug,1,  "VINK BIJ ISSUES GEDRAG BIJ SHORTLIST/TOELICHTING/LONGLIST", $new_gedrag_issues);
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.1 (DOUBLE) CHECK AAN BIJ WAARDE",       "[bedplassen]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if (is_array($val_gedrag_longlist)) {
+
+            wachthond($extdebug,3,      "val_gedrag_longlist",                         $val_gedrag_longlist);
+
+            $new_gedrag_longlist        = $val_gedrag_longlist;
+            $value                      = 'bedplassen';
+            $needles_bedplassen         = [' bedplassen ', ' plassen', ' plast in bed ', 'zindelijk', 'zindelijkheid',
+                                           ' plasluier ', ' luier' ];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_bedplassen, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_bedplassen, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_bedplassen, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey >0) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.1 (DOUBLE) CHECK AAN BIJ WAARDE",          "[heimwee]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if (is_array($val_gedrag_longlist)) {
+
+            wachthond($extdebug,3,      "val_gedrag_longlist",                          $val_gedrag_longlist);
+
+            $new_gedrag_longlist        = $val_gedrag_longlist;
+            $value                      = 'heimwee';
+            $needles_heimwee            = ['heimwee'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_heimwee, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_heimwee, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_heimwee, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey >0) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }        
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.2 (DOUBLE) CHECK AAN BIJ WAARDE",          "[suicide]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'suicidaal';
+            $needles_suicidaal          = ['suicidaal','suïcidaal','suicide','suïcide','zelfdoding','zelfmoord',];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_suicidaal, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_suicidaal, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_suicidaal, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey >0) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.3 (DOUBLE) CHECK AAN BIJ WAARDE",       "[gezinshuis]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'gezinshuis';
+            $needles_gezinshuis         = ['gezinshuis'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_gezinshuis, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_gezinshuis, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_gezinshuis, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey >0) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.3 (DOUBLE) CHECK AAN BIJ WAARDE",       "[pleeggezin]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'pleeggezin';
+            $needles_pleeggezin         = ['pleeggezin','pleegzorg','pleegdochter','pleegzoon','pleegouders'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_pleeggezin, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_pleeggezin, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_pleeggezin, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey >0) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.4 (DOUBLE) CHECK AAN BIJ WAARDE",         "[hechting]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",               $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                  $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'hechting';
+            $needles_hechting           = ['hechting', 'hechtingsstoornis', 'hechtingstoornis'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_hechting, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_hechting, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_hechting, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.5 (DOUBLE) CHECK AAN BIJ WAARDE",          "[autisme]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'autisme';
+            $needles_autisme            = ['autisme', ' ass ', 'autistisch'];
+
+            $match_found_shortlist      = str_contains_any($raw_gedrag_shortlist,       $needles_autisme, false);
+            wachthond($extdebug,4, 'match_found_shortlist',                             $match_found_shortlist);
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_autisme, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_autisme, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_autisme, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_shortlist == TRUE OR $match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.6 (DOUBLE) CHECK AAN BIJ WAARDE",             "[ADHD]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",               $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                  $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'adhd';
+            $needles_adhd               = ['adhd', 'a.d.h.d.', 'hyperactief', 'hyperactiviteit'];
+
+            $match_found_shortlist      = str_contains_any($raw_gedrag_shortlist,       $needles_adhd, false);
+            wachthond($extdebug,4, 'match_found_shortlist',                             $match_found_shortlist);
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_adhd, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_adhd, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_adhd, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_shortlist == TRUE OR $match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.7 (DOUBLE) CHECK AAN BIJ WAARDE",              "[ADD]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'add';
+            $needles_add               = [' add ', ' add.', 'ADD'];
+
+            $match_found_shortlist      = str_contains_any($raw_gedrag_shortlist,       $needles_add, false);
+            wachthond($extdebug,4, 'match_found_shortlist',                             $match_found_shortlist);
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_add, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_add, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_add, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_shortlist == TRUE OR $match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.8 (DOUBLE) CHECK AAN BIJ WAARDE",           "[PDDNOS]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",               $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                  $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'pddnos';
+            $needles_pddnos             = ['pddnos', 'pdd-nos', 'PDD-NOS'];
+
+            $match_found_shortlist      = str_contains_any($raw_gedrag_shortlist,       $needles_pddnos, false);
+            wachthond($extdebug,4, 'match_found_shortlist',                             $match_found_shortlist);
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_pddnos, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_pddnos, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_pddnos, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_shortlist == TRUE OR $match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.9 (DOUBLE) CHECK AAN BIJ WAARDE",         "[asperger]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",               $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                  $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'asperger';
+            $needles_asperger           = ['asperger'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_asperger, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_asperger, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_asperger, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.9 (DOUBLE) CHECK AAN BIJ WAARDE",         "[agressie]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'agressie';
+            $needles_agressie           = ['agressie', 'agressief', 'fysiek reageren'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_agressie, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_agressie, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_agressie, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",      $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",      $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.10 (DOUBLE) CHECK AAN BIJ WAARDE",   "[slaapwandelen]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'slaapwandelen';
+            $needles_slaapwandelen      = ['slaapwandelen', 'slaapwandelaar'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_slaapwandelen, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_slaapwandelen, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_slaapwandelen, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.10 (DOUBLE) CHECK AAN BIJ WAARDE",   "[hoogsensitief]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'hoogsensitief';
+            $needles_hoogsensitiviteit  = ['hoogsensitief', 'hoogsensitiviteit', 'hoogsensitieviteit', ' hsp ',
+                                           'hooggevoelig', 'hooggevoeligheid'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.10 (DOUBLE) CHECK AAN BIJ WAARDE",        "[dyslexie]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'dyslexie';
+            $needles_hoogsensitiviteit  = ['dyslexie', 'dyslectisch', 'dyscalculie'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.10 (DOUBLE) CHECK AAN BIJ WAARDE","[taalontwikkeling]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",               $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                  $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'tos';
+            $needles_hoogsensitiviteit  = ['taalontwikkelingsstoornis', 'taalontwikkeling', ' tos '];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.10 (DOUBLE) CHECK AAN BIJ WAARDE",     "[hoogbegaafd]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'hoogbegaafd';
+            $needles_hoogsensitiviteit  = ['hoogbegaafd'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.10 (DOUBLE) CHECK AAN BIJ WAARDE",    "[overgeslagen]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",               $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                  $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'overgeslagen';
+            $needles_hoogsensitiviteit  = ['overgeslagen'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_hoogsensitiviteit, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.11 (DOUBLE) CHECK AAN BIJ WAARDE",            "[PTSS]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if ($new_gedrag_longlist) {
+            $val_gedrag_longlist       = $new_gedrag_longlist;
+            wachthond($extdebug,4,  "CONTINUE WITH NEW_GEDRAG_LONGLIST",                $new_gedrag_longlist);
+        } else {
+            $new_gedrag_longlist       = $val_gedrag_longlist;
+            wachthond($extdebug,4,  "START WITH NEW_GEDRAG_LONGLIST",                   $new_gedrag_longlist);
+        }
+
+        if (is_array($val_gedrag_longlist)) {
+
+            $value                      = 'ptss';
+            $needles_pleeggezin         = ['ptss','cptss','post traumatisch',' ptss',' ptss'];
+
+            $match_found_toelichting    = str_contains_any($val_gedrag_toelichting,     $needles_pleeggezin, false);
+            wachthond($extdebug,4, 'match_found_toelichting',                           $match_found_toelichting);
+            $match_found_medicatie      = str_contains_any($val_gedrag_medicatie,       $needles_pleeggezin, false);
+            wachthond($extdebug,4, 'match_found_medicatie',                             $match_found_medicatie);
+            $match_found_notities       = str_contains_any($val_gedrag_notities,        $needles_pleeggezin, false);
+            wachthond($extdebug,4, 'match_found_notities',                              $match_found_notities);
+
+            if ($match_found_toelichting == TRUE OR $match_found_medicatie == TRUE OR $match_found_notities == TRUE) {
+
+                array_push($new_gedrag_longlist, $value);
+                wachthond($extdebug,3,  "new_gedrag_longlist (toegevoegd: $value)",     $new_gedrag_longlist);
+                $new_gedrag_longlist   = array_unique($new_gedrag_longlist);
+                wachthond($extdebug,4,  "new_gedrag_longlist (arrayunique)",            $new_gedrag_longlist);
+                wachthond($extdebug,1,  "VINKJE BIJ LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+
+            } else {
+
+                wachthond($extdebug,4,  "val_gedrag_toelichting",                       $val_gedrag_toelichting);
+                wachthond($extdebug,4,  "new_gedrag_longlist",                          $new_gedrag_longlist);
+                $findKey = array_search($value, $new_gedrag_longlist);
+                if ($findKey >0) { unset($new_gedrag_longlist[$findKey]); }
+                wachthond($extdebug,1,  "VINKJE UIT LONGLIST GEDRAG VOOR $value",       $new_gedrag_longlist);
+            }
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,2, "### GEDRAG [PRE] 3.9 INJECTEER WAARDE NAAR DB",       "[GEDRAG LONGLIST]");
+        wachthond($extdebug,2, "########################################################################");
+
+        if (is_numeric($key_gedrag_longlist) AND $new_gedrag_longlist) {
+
+            wachthond($extdebug,3,  "new_gedrag_longlist",                              $new_gedrag_longlist);
+            $new_gedrag_longlist1   = implode('',                                 $new_gedrag_longlist);
+            wachthond($extdebug,3,  "new_gedrag_longlist1",                             $new_gedrag_longlist1);
+            $new_gedrag_longlist    = CRM_Utils_Array::implodePadded($new_gedrag_longlist);
+            wachthond($extdebug,3,  "new_gedrag_longlist",                              $new_gedrag_longlist);
+
+            $new_gedrag_longlist    = (string) $new_gedrag_longlist;
+            wachthond($extdebug,3,  "new_gedrag_longlist",                              $new_gedrag_longlist);
+
+            wachthond($extdebug,3, 'OLD params[key_gedrag_longlist]',                   $params[$key_gedrag_longlist]);
+            if ($extwrite == 1) { $params[$key_gedrag_longlist]['value'] =              $new_gedrag_longlist; }
+            wachthond($extdebug,3, 'NEW params[key_gedrag_longlist]',                   $params[$key_gedrag_longlist]);
+            
+        } else {
+            wachthond($extdebug,2,  "key_gedrag_longlist",                              $key_gedrag_longlist);
+            wachthond($extdebug,2,  "new_gedrag_longlist",                              $new_gedrag_longlist);
+        }
+
+        wachthond($extdebug,2, "########################################################################");
+        wachthond($extdebug,1, "### GEDRAG [PRE] 9.0 UPDATE DATUM GEDRAG MODIFIED");
+        wachthond($extdebug,2, "########################################################################");
+
+        wachthond($extdebug,2, 'key_gedrag_modified',                       $key_gedrag_modified);
+
+        $today_datetime_db      = date("YmdHis");
+        $today_datetime_unix    = strtotime($today_datetime);  // also gives Unix timestamp
+
+        wachthond($extdebug,2, 'today_datetime',                            $today_datetime);
+        wachthond($extdebug,2, 'today_datetime_db',                         $today_datetime_db);
+        wachthond($extdebug,2, 'today_datetime_unix',                       $today_datetime_unix);
+
+        if (is_numeric($key_gedrag_modified) AND !empty($today_datetime_db)) {
+
+            wachthond($extdebug,3, 'OLD params[key_gedrag_modified]',       $params[$key_gedrag_modified]);
+            if ($extwrite == 1) { $params[$key_gedrag_modified]['value'] =  $today_datetime_db; }
+            wachthond($extdebug,3, 'NEW params[key_gedrag_modified]',       $params[$key_gedrag_modified]);
+        }
+
+        wachthond($extdebug,3, "NEW params",                $params);
+
+        wachthond($extdebug,1, "########################################################################");
+        wachthond($extdebug,1, "### GEDRAG [PRE] EINDE PROFILE VOOR $entityID", "[groupID: $groupID / op: $op]");
+        wachthond($extdebug,1, "########################################################################");
+
+
+    }
+
+}
